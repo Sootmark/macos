@@ -1,0 +1,18 @@
+These files are plaso's test data, under the Apache License 2.0 (LICENSE,
+in this directory). Copyright the plaso authors.
+
+Source: https://github.com/log2timeline/plaso, test_data/, at commit
+a70dde825618050f6ce6c646f12fed386a9b4d73.
+
+  sqlite/quarantine.db       quarantine.db
+  macos/TCC-test.db          TCC-test.db
+  macos/knowledgec-10.13.db  knowledgec-10.13.db.gz (gzip -9n)
+  macos/knowledgec-10.14.db  knowledgec-10.14.db.gz (gzip -9n)
+
+The KnowledgeC databases are stored gzip-compressed; all four are otherwise
+unmodified. SHA-256 of the uncompressed files:
+
+  quarantine.db        88d5f209cfef106d8e532c00e1aff96275509f4e76d77372d946489d22e93ca4
+  TCC-test.db          028e38156a1c2aaa3c50e1b0c0a6a3d2b5071d4e12b2e4b27b7659c9b1ff54f5
+  knowledgec-10.13.db  03571fcce0b84296adc9f325cfc6eb4320e54cda2c325b9adc05e18c83389bb0
+  knowledgec-10.14.db  01fc9d0ef0b10edc557c996665b74cbfe84d3d0539faad248909dd53ec022ab5

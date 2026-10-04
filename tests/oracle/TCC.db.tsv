@@ -1,0 +1,7 @@
+1	kTCCServiceCamera	com.example.meet	0	2	2	1788249600	UNUSED	FADE0C00000000300000000100000006
+2	kTCCServiceScreenCapture	com.example.recorder	0	0	3	1788249660	UNUSED	
+3	kTCCServiceSystemPolicyAllFiles	/usr/local/bin/backup-agent	1	2	3	1788249720	UNUSED	
+4	kTCCServiceAccessibility	com.example.helper	0	2	6	1788249780	UNUSED	
+5	kTCCServiceAppleEvents	com.example.automation	0	2	2	1788249840	com.apple.finder	
+6	kTCCServicePhotos	com.example.gallery	0	3	2	1788249900	UNUSED	
+7	kTCCServiceMicrophone	com.example.meet	0	1	99	1788249960	UNUSED	

@@ -1,0 +1,218 @@
+//! macOS artifacts kept in SQLite databases, for forensics, read without
+//! SQLite.
+//!
+//! - Quarantine events, `~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2`
+//!   ([`read_quarantine`]): where each downloaded file came from, by which
+//!   app, when.
+//! - TCC, `/Library/Application Support/com.apple.TCC/TCC.db` (the
+//!   system's) and `~/Library/Application Support/com.apple.TCC/TCC.db`
+//!   (each user's) ([`read_tcc`]): which apps were allowed or denied the
+//!   camera, the microphone, screen recording, full disk access,
+//!   accessibility and the other protected services, why, and when.
+//! - KnowledgeC, `/private/var/db/CoreDuet/Knowledge/knowledgeC.db` (the
+//!   system's) and `~/Library/Application Support/Knowledge/knowledgeC.db`
+//!   (each user's) ([`read_knowledgec`]): app focus and usage, display
+//!   backlight, device lock, Safari visits and the other event streams
+//!   over time.
+//!
+//! Times are Mac absolute time (seconds since 2001-01-01 UTC) except TCC's,
+//! which are Unix seconds; both are UTC. Columns are read by name: one a
+//! macOS version lacks reads as `None`, one it added is ignored. Each
+//! `read_*` takes the database with its write-ahead log (the `-wal` file
+//! beside it, empty when there is none), whose committed changes it
+//! applies: the latest events are often only there. Damage is listed in
+//! `problems`, never a panic.
+
+use common::time::Ts;
+use sqlite::Database;
+
+mod knowledgec;
+mod quarantine;
+mod table;
+mod tcc;
+
+pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
+pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
+pub use tcc::{read_tcc, AuthReason, Authorization, ClientType, Tcc, TccEntry};
+
+/// This crate's version, for records of what parsed them.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Which artifact a file is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Artifact {
+    /// `com.apple.LaunchServices.QuarantineEventsV2`, in each user's
+    /// `Library/Preferences`: read with [`read_quarantine`].
+    QuarantineEvents,
+    /// `TCC.db`: read with [`read_tcc`].
+    Tcc(Scope),
+    /// `knowledgeC.db`: read with [`read_knowledgec`].
+    KnowledgeC(Scope),
+}
+
+/// Whose a database is, as its path says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scope {
+    /// The system's: `/Library/Application Support/com.apple.TCC/TCC.db`,
+    /// `/private/var/db/CoreDuet/Knowledge/knowledgeC.db`.
+    System,
+    /// A user's, under a home folder (`Users/<name>/`, `~/`, root's
+    /// `var/root/`).
+    User,
+    /// Not said: a bare file name, or a path elsewhere.
+    Unknown,
+}
+
+/// Which artifact a file is, from its name or path (`/` or `\`, case
+/// ignored, as APFS and HFS+ ignore it by default).
+///
+/// A path to a mounted image works as well as one on a live system: a TCC
+/// database under `Users/<name>/` is a user's, one under
+/// `Library/Application Support/com.apple.TCC/` elsewhere the system's.
+/// The `-wal` and `-shm` files beside a database are `None`.
+#[must_use]
+pub fn detect(name: &str) -> Option<Artifact> {
+    let path = name.replace('\\', "/").to_ascii_lowercase();
+    let base = path.rsplit('/').next().unwrap_or(&path);
+    match base {
+        "com.apple.launchservices.quarantineeventsv2" => Some(Artifact::QuarantineEvents),
+        "tcc.db" => Some(Artifact::Tcc(tcc_scope(&path))),
+        "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
+        _ => None,
+    }
+}
+
+const TCC_PATH: &str = "library/application support/com.apple.tcc/tcc.db";
+const SYSTEM_KNOWLEDGEC_PATH: &str = "var/db/coreduet/knowledge/knowledgec.db";
+const USER_KNOWLEDGEC_PATH: &str = "library/application support/knowledge/knowledgec.db";
+
+/// A TCC database's scope from its lowercased path: in a home folder, a
+/// user's; in `Library` elsewhere, the system's.
+fn tcc_scope(path: &str) -> Scope {
+    match folder_before(path, TCC_PATH) {
+        Some(prefix) if is_home(prefix) => Scope::User,
+        Some(_) => Scope::System,
+        None => Scope::Unknown,
+    }
+}
+
+/// A KnowledgeC database's scope from its lowercased path: the two
+/// locations differ.
+fn knowledgec_scope(path: &str) -> Scope {
+    if folder_before(path, SYSTEM_KNOWLEDGEC_PATH).is_some() {
+        Scope::System
+    } else if folder_before(path, USER_KNOWLEDGEC_PATH).is_some() {
+        Scope::User
+    } else {
+        Scope::Unknown
+    }
+}
+
+/// The folder `path` has before `suffix`, when it ends with it as whole
+/// path components: `""` for a path that starts with `suffix`.
+fn folder_before<'p>(path: &'p str, suffix: &str) -> Option<&'p str> {
+    let prefix = path.strip_suffix(suffix)?;
+    (prefix.is_empty() || prefix.ends_with('/')).then_some(prefix)
+}
+
+/// Whether a folder (lowercased, `/` separated) is a home folder:
+/// `…/users/<name>/`, `~/`, root's `…/var/root/`.
+fn is_home(folder: &str) -> bool {
+    let parts: Vec<&str> = folder.trim_end_matches('/').split('/').collect();
+    match parts.as_slice() {
+        [.., "~"] | [.., "var", "root"] => true,
+        [.., "users", name] => !name.is_empty(),
+        _ => false,
+    }
+}
+
+/// Why a file can't be read as the artifact asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error(pub String);
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Error {}
+
+/// The database with its log's committed changes, when it has `table`.
+fn open<'a>(
+    database: &'a [u8],
+    wal: &'a [u8],
+    table: &str,
+    artifact: &str,
+) -> Result<Database<'a>, Error> {
+    let db = Database::open_with_wal(database, wal).map_err(|e| Error(e.to_string()))?;
+    if db.table(table).is_none() {
+        return Err(Error(format!(
+            "not a {artifact} database: no {table} table"
+        )));
+    }
+    Ok(db)
+}
+
+/// Mac absolute time: seconds since 2001-01-01 UTC.
+fn mac_time(seconds: f64) -> Ts {
+    Ts::from_cocoa_seconds(seconds)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_by_name_and_path() {
+        let user_tcc = Some(Artifact::Tcc(Scope::User));
+        let system_tcc = Some(Artifact::Tcc(Scope::System));
+        for (name, artifact) in [
+            (
+                "/Users/alice/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2",
+                Some(Artifact::QuarantineEvents),
+            ),
+            ("TCC.db", Some(Artifact::Tcc(Scope::Unknown))),
+            (
+                "/Library/Application Support/com.apple.TCC/TCC.db",
+                system_tcc,
+            ),
+            (
+                "/Users/alice/Library/Application Support/com.apple.TCC/TCC.db",
+                user_tcc,
+            ),
+            (
+                "~/Library/Application Support/com.apple.TCC/TCC.db",
+                user_tcc,
+            ),
+            (
+                "/private/var/root/Library/Application Support/com.apple.TCC/TCC.db",
+                user_tcc,
+            ),
+            (
+                r"E:\image\Users\bob\Library\Application Support\com.apple.TCC\tcc.db",
+                user_tcc,
+            ),
+            (
+                "/Volumes/image/Library/Application Support/com.apple.TCC/TCC.db",
+                system_tcc,
+            ),
+            ("/tmp/TCC.db", Some(Artifact::Tcc(Scope::Unknown))),
+            (
+                "/private/var/db/CoreDuet/Knowledge/knowledgeC.db",
+                Some(Artifact::KnowledgeC(Scope::System)),
+            ),
+            (
+                "/Users/alice/Library/Application Support/Knowledge/knowledgeC.db",
+                Some(Artifact::KnowledgeC(Scope::User)),
+            ),
+            ("knowledgeC.db", Some(Artifact::KnowledgeC(Scope::Unknown))),
+            ("knowledgeC.db-wal", None),
+            ("TCC.db-shm", None),
+            ("History", None),
+            ("", None),
+        ] {
+            assert_eq!(detect(name), artifact, "{name}");
+        }
+    }
+}
