@@ -4,7 +4,8 @@
 //! `sootmark-plist` (binary or XML). What a job runs (`Program`, else the
 //! first of `ProgramArguments`), when (`RunAtLoad`, `KeepAlive`,
 //! `StartInterval`, `StartCalendarInterval`, `WatchPaths`), and as whom
-//! (`UserName`) are the persistence questions; [`LaunchJob::flags`] lists
+//! (`UserName`), and with which environment (`EnvironmentVariables`), are
+//! the persistence questions; [`LaunchJob::flags`] lists
 //! traits that look like an implant's.
 
 use plist::Value;
@@ -52,6 +53,8 @@ pub struct LaunchJob {
     pub arguments: Vec<String>,
     /// When launchd starts it.
     pub triggers: Triggers,
+    /// `EnvironmentVariables`, in file order.
+    pub environment: Vec<(String, String)>,
     /// `UserName`.
     pub user_name: Option<String>,
     /// `Disabled`.
@@ -87,6 +90,9 @@ pub enum JobFlag {
     /// Neither `Program` nor `ProgramArguments`: nothing to run, or a
     /// damaged file.
     NoProgram,
+    /// `DYLD_INSERT_LIBRARIES` in its environment: a library loaded into
+    /// the program, the classic way to hook it.
+    LibraryInjection,
 }
 
 impl JobFlag {
@@ -98,6 +104,7 @@ impl JobFlag {
             Self::HiddenPath => "runs from a hidden path",
             Self::InlineScript => "inline script",
             Self::NoProgram => "no program",
+            Self::LibraryInjection => "library injected (DYLD_INSERT_LIBRARIES)",
         }
     }
 }
@@ -130,8 +137,14 @@ impl LaunchJob {
     /// Traits that look like an implant's, in [`JobFlag`] order.
     #[must_use]
     pub fn flags(&self) -> Vec<JobFlag> {
+        let injected = self
+            .environment
+            .iter()
+            .any(|(name, value)| name == "DYLD_INSERT_LIBRARIES" && !value.is_empty());
         let Some(executable) = self.executable() else {
-            return vec![JobFlag::NoProgram];
+            let mut flags = vec![JobFlag::NoProgram];
+            flags.extend(injected.then_some(JobFlag::LibraryInjection));
+            return flags;
         };
         let lower = executable.to_ascii_lowercase();
         let program = lower.rsplit('/').next().unwrap_or(&lower);
@@ -153,6 +166,7 @@ impl LaunchJob {
                     .any(|part| part.len() > 1 && part.starts_with('.')),
             ),
             (JobFlag::InlineScript, inline),
+            (JobFlag::LibraryInjection, injected),
         ]
         .into_iter()
         .filter_map(|(flag, found)| found.then_some(flag))
@@ -205,6 +219,16 @@ pub fn read_launchd(data: &[u8], path: &str) -> Result<Launchd, Error> {
             calendar: root.get("StartCalendarInterval").is_some(),
             watch_paths: strings("WatchPaths"),
         },
+        environment: root
+            .get("EnvironmentVariables")
+            .and_then(Value::as_dictionary)
+            .map(|pairs| {
+                pairs
+                    .iter()
+                    .filter_map(|(name, value)| Some((name.clone(), value.as_str()?.to_owned())))
+                    .collect()
+            })
+            .unwrap_or_default(),
         user_name: text("UserName"),
         disabled: root.get("Disabled").and_then(Value::as_bool) == Some(true),
     };
@@ -266,10 +290,21 @@ mod tests {
                 run_at_load: true,
                 ..Triggers::default()
             },
+            environment: vec![(
+                "DYLD_INSERT_LIBRARIES".to_owned(),
+                "/tmp/x.dylib".to_owned(),
+            )],
             user_name: None,
             disabled: false,
         };
-        assert_eq!(job.flags(), [JobFlag::TemporaryFolder, JobFlag::HiddenPath]);
+        assert_eq!(
+            job.flags(),
+            [
+                JobFlag::TemporaryFolder,
+                JobFlag::HiddenPath,
+                JobFlag::LibraryInjection
+            ]
+        );
         assert!(read_launchd(b"not a plist", "x.plist").is_err());
     }
 }

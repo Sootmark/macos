@@ -1,6 +1,6 @@
 [package]
 name = "sootmark-macos"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.80"
 description = "macOS artifacts for forensics: launchd jobs (LaunchAgents, LaunchDaemons), quarantine events, TCC privacy permissions and KnowledgeC usage, read with sootmark-plist and sootmark-sqlite."
