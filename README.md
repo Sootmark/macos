@@ -1,10 +1,10 @@
 # macos
 
-macOS artifacts kept in SQLite databases, for forensics: where each downloaded file came from (quarantine events), which apps were allowed the camera, the microphone, the screen, the whole disk (TCC), and which apps were in front, when the screen was on and the device locked (KnowledgeC). Two dependencies, its siblings `sootmark-common` (times) and `sootmark-sqlite` (the databases, read without SQLite).
+macOS artifacts for forensics: launchd jobs (LaunchAgents and LaunchDaemons, macOS's main persistence), and those kept in SQLite databases: where each downloaded file came from (quarantine events), which apps were allowed the camera, the microphone, the screen, the whole disk (TCC), and which apps were in front, when the screen was on and the device locked (KnowledgeC). Two dependencies, its siblings `sootmark-common` (times) and `sootmark-sqlite` (the databases, read without SQLite).
 
 ```toml
 [dependencies]
-sootmark-macos = "0.1"
+sootmark-macos = "0.2"
 ```
 
 ```rust
@@ -40,6 +40,7 @@ for problem in &knowledgec.problems {
 - `read_knowledgec(database, wal)`: `knowledgeC.db`, the system's (`/private/var/db/CoreDuet/Knowledge/`) or a user's (`~/Library/Application Support/Knowledge/`), one `KnowledgeEvent` per `ZOBJECT` row with a stream name: the stream (`/app/inFocus`, `/app/usage`, `/app/activity`, `/display/isBacklit`, `/device/isLocked`, `/safari/history`, …), the value (`ZVALUESTRING`, `ZVALUEINTEGER`, `ZVALUEDOUBLE`), start, end and creation, the local offset from UTC when recorded (`ZSECONDSFROMGMT`), the UUID; from its `ZSOURCE` row the donating app's bundle and the device; from its `ZSTRUCTUREDMETADATA` row a Safari page's or an app activity's title and the activity type. `app()` is the app an event is about (an `/app/…` stream's value, else the source's bundle); `duration()` end minus start.
 - Times as `sootmark-common` `Ts`, UTC: Mac absolute time (seconds since 2001-01-01, real or integer, to the microsecond, rounded) for quarantine and KnowledgeC, Unix seconds for TCC.
 - The write-ahead log's committed changes are applied (`wal` may be empty): KnowledgeC databases are in write-ahead log mode, and the latest events are often only in the log.
+- `read_launchd(plist, path)`: a launchd job's property list (binary or XML, read with `sootmark-plist`) from a `LaunchAgents` or `LaunchDaemons` folder (`/Library`, `/System/Library`, a user's `~/Library`): label, program and arguments (the command line as launchd runs it), `RunAtLoad`, `KeepAlive`, `StartInterval`, `StartCalendarInterval`, `WatchPaths`, `UserName`, `Disabled`, and `flags()`: a program in a temporary or shared folder, a hidden path, an interpreter given an inline script (`sh -c`, `osascript -e`), no program at all. Checked on plaso's launchd test plists, against plaso's launchd plugin test.
 - `detect(name)`: which `Artifact` a file is from its name or path (`/` or `\`, case ignored), and for TCC and KnowledgeC its `Scope` (system, user, unknown): a path in a mounted image works, a TCC database under `Users/<name>/`, `~/` or `var/root/` is a user's, one in `Library/` elsewhere the system's.
 - Columns are read by name: one a version lacks reads as `None`, one it added is ignored. Damage is reported in `problems`, never a panic: the SQLite reader's findings (damaged pages, a foreign log), and KnowledgeC objects naming a source or metadata row that isn't there (kept, without it). A database without the artifact's table is refused.
 

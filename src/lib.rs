@@ -27,11 +27,13 @@ use common::time::Ts;
 use sqlite::Database;
 
 mod knowledgec;
+mod launchd;
 mod quarantine;
 mod table;
 mod tcc;
 
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
+pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
 pub use tcc::{read_tcc, AuthReason, Authorization, ClientType, Tcc, TccEntry};
 
@@ -48,6 +50,9 @@ pub enum Artifact {
     Tcc(Scope),
     /// `knowledgeC.db`: read with [`read_knowledgec`].
     KnowledgeC(Scope),
+    /// A launchd job's property list in a `LaunchAgents` or
+    /// `LaunchDaemons` folder: read with [`read_launchd`].
+    Launchd(JobKind),
 }
 
 /// Whose a database is, as its path says.
@@ -78,6 +83,12 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "com.apple.launchservices.quarantineeventsv2" => Some(Artifact::QuarantineEvents),
         "tcc.db" => Some(Artifact::Tcc(tcc_scope(&path))),
         "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
+        _ if base
+            .rsplit_once('.')
+            .is_some_and(|(_, extension)| extension == "plist") =>
+        {
+            launchd::kind_of(&path).map(Artifact::Launchd)
+        }
         _ => None,
     }
 }

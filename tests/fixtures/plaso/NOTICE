@@ -16,3 +16,9 @@ unmodified. SHA-256 of the uncompressed files:
   TCC-test.db          028e38156a1c2aaa3c50e1b0c0a6a3d2b5071d4e12b2e4b27b7659c9b1ff54f5
   knowledgec-10.13.db  03571fcce0b84296adc9f325cfc6eb4320e54cda2c325b9adc05e18c83389bb0
   knowledgec-10.14.db  01fc9d0ef0b10edc557c996665b74cbfe84d3d0539faad248909dd53ec022ab5
+
+Also from test_data/plist/ at the same commit, unmodified (SHA-256):
+
+  launchd.plist  6a5529a6e349c4734059a3769e4fb13ca0902cec20bb3a2585543ce4ecebfa72
+  launchd.minimal.plist  fcb0f0140c4351463c5c0826154c9140bd10e8ed21d5f8039f49969851a617f3
+  launchd.noprogram.plist  64e541b40c5fba51440e7387dcbc55a4a255166147b8311735e188232fd619f2

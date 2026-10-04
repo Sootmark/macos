@@ -23,9 +23,29 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     let _ = macos::read_quarantine(data, wal);
     let _ = macos::read_tcc(data, wal);
     let _ = macos::read_knowledgec(data, wal);
+    if let Ok(read) = macos::read_launchd(data, "Library/LaunchAgents/x.plist") {
+        let _ = (read.job.flags(), read.job.command_line());
+    }
 }
 
 proptest! {
+    #[test]
+    fn damaged_launchd_plists_never_panic(
+        flips in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..40),
+    ) {
+        let mut data = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/plaso/launchd.plist"
+        ))
+        .unwrap();
+        for (at, byte) in flips {
+            let len = data.len();
+            data[at % len] = byte;
+        }
+        read_everything(&data, &[]);
+    }
+
+
     #[test]
     fn arbitrary_bytes_never_panic(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
         read_everything(&data, &[]);

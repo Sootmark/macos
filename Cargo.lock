@@ -248,11 +248,21 @@ checksum = "16039a30e3d12a335537236722ba00a8da0b5dfdfcf20785b75dea78f523160e"
 
 [[package]]
 name = "sootmark-macos"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "sootmark-common",
+ "sootmark-plist",
  "sootmark-sqlite",
+]
+
+[[package]]
+name = "sootmark-plist"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c122cba6d58a85646b1755754fe8cce4ebfbe954f1b19b3727ef23fb6d655ea"
+dependencies = [
+ "sootmark-common",
 ]
 
 [[package]]

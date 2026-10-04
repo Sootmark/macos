@@ -1,9 +1,9 @@
 [package]
 name = "sootmark-macos"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.80"
-description = "macOS artifacts kept in SQLite databases, for forensics: where downloaded files came from (QuarantineEventsV2), which apps were granted the camera, screen or disk (TCC.db), and app usage and device events over time (knowledgeC.db), read without SQLite, damage reported rather than fatal."
+description = "macOS artifacts for forensics: launchd jobs (LaunchAgents, LaunchDaemons), quarantine events, TCC privacy permissions and KnowledgeC usage, read with sootmark-plist and sootmark-sqlite."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Sootmark/macos"
 homepage = "https://sootmark.com"
@@ -16,6 +16,7 @@ name = "macos"
 
 [dependencies]
 common = { package = "sootmark-common", version = "0.3.7" }
+plist = { package = "sootmark-plist", version = "0.1.0" }
 sqlite = { package = "sootmark-sqlite", version = "0.2.0" }
 
 [dev-dependencies]
