@@ -22,3 +22,11 @@ Also from test_data/plist/ at the same commit, unmodified (SHA-256):
   launchd.plist  6a5529a6e349c4734059a3769e4fb13ca0902cec20bb3a2585543ce4ecebfa72
   launchd.minimal.plist  fcb0f0140c4351463c5c0826154c9140bd10e8ed21d5f8039f49969851a617f3
   launchd.noprogram.plist  64e541b40c5fba51440e7387dcbc55a4a255166147b8311735e188232fd619f2
+
+Also from test_data/fsevents/ at commit
+91b6849503b125267d00ea134248e4fe59e5479c, unmodified (gzip-compressed as
+fseventsd writes them; SHA-256):
+
+  fsevents-00000000001a0b79  63fef94bc2cee7cfef64c198f4c25ed1b8c10ea701eb2ddfc5cffdc1e9f8d698
+  fsevents-0000000002d89b58  30a0d8455d4672765e30cd1f9ada5975cbc85a998877e4ac7a28d926abff48c7
+  backgrounditems.btm        504ec4181f994abf92f62fcf03e81d450146e1a0c4e940ef9ada075bde6fbc63

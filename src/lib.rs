@@ -26,12 +26,16 @@
 use common::time::Ts;
 use sqlite::Database;
 
+mod btm;
+mod fsevents;
 mod knowledgec;
 mod launchd;
 mod quarantine;
 mod table;
 mod tcc;
 
+pub use btm::{is_background_items_name, read_background_items, BackgroundItem, BackgroundItems};
+pub use fsevents::{is_fsevents_name, read_fsevents, FsEvent, FsEvents};
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
 pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
@@ -53,6 +57,12 @@ pub enum Artifact {
     /// A launchd job's property list in a `LaunchAgents` or
     /// `LaunchDaemons` folder: read with [`read_launchd`].
     Launchd(JobKind),
+    /// An FSEvents log (`.fseventsd/<16 hex digits>`): read with
+    /// [`read_fsevents`].
+    FsEvents,
+    /// A background items file (`backgrounditems.btm`,
+    /// `BackgroundItems-v<n>.btm`): read with [`read_background_items`].
+    BackgroundItems,
 }
 
 /// Whose a database is, as its path says.
@@ -83,6 +93,8 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "com.apple.launchservices.quarantineeventsv2" => Some(Artifact::QuarantineEvents),
         "tcc.db" => Some(Artifact::Tcc(tcc_scope(&path))),
         "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
+        _ if is_fsevents_name(base) && path.contains(".fseventsd/") => Some(Artifact::FsEvents),
+        _ if is_background_items_name(base) => Some(Artifact::BackgroundItems),
         _ if base
             .rsplit_once('.')
             .is_some_and(|(_, extension)| extension == "plist") =>

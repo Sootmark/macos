@@ -26,6 +26,8 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     if let Ok(read) = macos::read_launchd(data, "Library/LaunchAgents/x.plist") {
         let _ = (read.job.flags(), read.job.command_line());
     }
+    let _ = macos::read_fsevents(data);
+    let _ = macos::read_background_items(data);
 }
 
 proptest! {
@@ -92,5 +94,28 @@ proptest! {
         }
         wal.truncate(cut % (wal.len() + 1));
         read_everything(&database, &wal);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn damaged_fsevents_and_background_items(
+        at in 0usize..2000,
+        bytes in proptest::collection::vec(any::<u8>(), 1..32),
+        cut in 0usize..2000,
+    ) {
+        for name in ["plaso/backgrounditems.btm", "plaso/fsevents-0000000002d89b58"] {
+            let mut data = support::fixture(name);
+            for (i, b) in bytes.iter().enumerate() {
+                if let Some(slot) = data.get_mut(at + i) {
+                    *slot = *b;
+                }
+            }
+            data.truncate(cut);
+            let _ = macos::read_fsevents(&data);
+            let _ = macos::read_background_items(&data);
+        }
     }
 }

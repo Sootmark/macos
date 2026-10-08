@@ -4,7 +4,7 @@ macOS artifacts for forensics: launchd jobs (LaunchAgents and LaunchDaemons, mac
 
 ```toml
 [dependencies]
-sootmark-macos = "0.3"
+sootmark-macos = "0.4"
 ```
 
 ```rust
@@ -43,6 +43,8 @@ for problem in &knowledgec.problems {
 - `read_launchd(plist, path)`: a launchd job's property list (binary or XML, read with `sootmark-plist`) from a `LaunchAgents` or `LaunchDaemons` folder (`/Library`, `/System/Library`, a user's `~/Library`): label, program and arguments (the command line as launchd runs it), `RunAtLoad`, `KeepAlive`, `StartInterval`, `StartCalendarInterval`, `WatchPaths`, `UserName`, `Disabled`, `EnvironmentVariables`, and `flags()`: a program in a temporary or shared folder, a hidden path, an interpreter given an inline script (`sh -c`, `osascript -e`), `DYLD_INSERT_LIBRARIES` set, no program at all. Checked on plaso's launchd test plists, against plaso's launchd plugin test.
 - `detect(name)`: which `Artifact` a file is from its name or path (`/` or `\`, case ignored), and for TCC and KnowledgeC its `Scope` (system, user, unknown): a path in a mounted image works, a TCC database under `Users/<name>/`, `~/` or `var/root/` is a user's, one in `Library/` elsewhere the system's.
 - Columns are read by name: one a version lacks reads as `None`, one it added is ignored. Damage is reported in `problems`, never a panic: the SQLite reader's findings (damaged pages, a foreign log), and KnowledgeC objects naming a source or metadata row that isn't there (kept, without it). A database without the artifact's table is refused.
+- `read_fsevents(data)`: an FSEvents log (`/.fseventsd/<16 hex digits>`, gzip-compressed as `fseventsd` writes it): each change's path, event identifier, flags (`flag_names()`: `Created`, `Removed`, `Renamed`, `Modified`, `IsFile`, `IsDirectory`, …) and, from version 2, node identifier; versions 1 to 3. Records carry no time: the file's name is its last event's identifier and its modification time bounds them.
+- `read_background_items(data)`: `backgrounditems.btm` (macOS 10.13 to 12) and `BackgroundItems-v<n>.btm`: each login item's display name, target path and creation time, and its volume's name, mount point, creation time and flags, from the bookmarks the archive holds.
 
 ## Not yet
 
@@ -61,6 +63,7 @@ for problem in &knowledgec.problems {
 | Databases made by `tests/fixtures/synthetic/gen.sh` (the sqlite3 shell, synthetic rows): a TCC database with the macOS 14 `access` table as public write-ups give it (every authorization value, reasons, a client by path, an Apple Events target, a process, boot UUID and reminder, an unknown reason); a KnowledgeC database with plaso's macOS 10.14 tables, a Safari visit with its source and title, an object naming a missing source, an event only in the write-ahead log | as written; the log's event read with the log only |
 | `detect`: system and user paths, Windows separators, mounted images, `-wal` and `-shm` files | as expected |
 | Property tests: arbitrary bytes, arbitrary pages behind a real header, every fixture damaged and cut anywhere, the log damaged and cut anywhere, arbitrary names | read or refused, never a panic |
+- FSEvents and background items: plaso's test files (`test_data/fsevents/`, `backgrounditems.btm`), every record and value plaso's `fseventsd` parser and `macos_background_items_plist` plugin read, read the same.
 
 ## Licence
 
