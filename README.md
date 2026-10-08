@@ -4,7 +4,7 @@ macOS artifacts for forensics: launchd jobs (LaunchAgents and LaunchDaemons, mac
 
 ```toml
 [dependencies]
-sootmark-macos = "0.5"
+sootmark-macos = "0.6"
 ```
 
 ```rust
@@ -46,6 +46,7 @@ for problem in &knowledgec.problems {
 - `read_fsevents(data)`: an FSEvents log (`/.fseventsd/<16 hex digits>`, gzip-compressed as `fseventsd` writes it): each change's path, event identifier, flags (`flag_names()`: `Created`, `Removed`, `Renamed`, `Modified`, `IsFile`, `IsDirectory`, …) and, from version 2, node identifier; versions 1 to 3. Records carry no time: the file's name is its last event's identifier and its modification time bounds them.
 - `read_background_items(data)`: `backgrounditems.btm` (macOS 10.13 to 12) and `BackgroundItems-v<n>.btm`: each login item's display name, target path and creation time, and its volume's name, mount point, creation time and flags, from the bookmarks the archive holds.
 - `read_prefs(kind, data)`: the property lists of what the Mac did and was set to, one entry per thing: installations (`InstallHistory.plist`: name, version, installer, packages, time), Software Update's last checks and recommendations, the Wi-Fi networks remembered (SSID, security, last joined), the Bluetooth devices seen and paired (with their last updates), the Apple accounts signed in, legacy login items (`com.apple.loginitems.plist`, targets from their alias records), login and logout hooks and login applications, a local account's `dslocal` property list (name, full name, ids, home, shell, created, password last set, last login and failed login; never the hashes), startup items, Time Machine destinations and snapshots.
+- `read_asl(data)`: the Apple System Log (`/private/var/log/asl/*.asl`): each message's time (to the nanosecond), level, process, user and group, who may read it, host, sender, facility, message and extra key-value pairs.
 
 ## Not yet
 
@@ -66,6 +67,7 @@ for problem in &knowledgec.problems {
 | Property tests: arbitrary bytes, arbitrary pages behind a real header, every fixture damaged and cut anywhere, the log damaged and cut anywhere, arbitrary names | read or refused, never a panic |
 - FSEvents and background items: plaso's test files (`test_data/fsevents/`, `backgrounditems.btm`), every record and value plaso's `fseventsd` parser and `macos_background_items_plist` plugin read, read the same.
 - Property lists: plaso's test plists, every event its `macos_bluetooth`, `apple_id`, `airport`, `time_machine`, `macos_software_update`, `macuser`, `macos_login_items_plist`, `macos_login_window_plist` and `macos_startup_item_plist` plugins read, read the same; `InstallHistory.plist` against the values it holds.
+- ASL: plaso's `applesystemlog.asl` and `2019.09.26.asl`, every one of the 320 messages its `asl_log` parser reads, read the same.
 
 ## Licence
 

@@ -28,6 +28,7 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     }
     let _ = macos::read_fsevents(data);
     let _ = macos::read_background_items(data);
+    let _ = macos::read_asl(data);
     for kind in [
         macos::PrefKind::InstallHistory,
         macos::PrefKind::SoftwareUpdate,
@@ -125,6 +126,7 @@ proptest! {
             "plaso/fsevents-0000000002d89b58",
             "plaso/com.apple.loginitems.plist",
             "plaso/user.plist",
+            "plaso/applesystemlog.asl",
         ] {
             let mut data = support::fixture(name);
             for (i, b) in bytes.iter().enumerate() {
@@ -137,6 +139,7 @@ proptest! {
             let _ = macos::read_background_items(&data);
             let _ = macos::read_prefs(macos::PrefKind::LoginItems, &data);
             let _ = macos::read_prefs(macos::PrefKind::User, &data);
+            let _ = macos::read_asl(&data);
         }
     }
 }

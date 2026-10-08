@@ -44,3 +44,9 @@ unmodified (SHA-256):
   loginwindow.plist  27ab0a420b39f1b9a27504f705ad7392f3c3f6ae60361f0fcc8a9fe9c6e82446
   user.plist  8cd9a6cade5bd3d6b75110a43095aa40506205bec3e21a20f37642dca8dae322
   com.apple.TimeMachine.plist  0c8dad3aabfc867907b9afebb2683b4862dfb03d3ecd3d94481a09f5bfcf8d58
+
+Also test_data/applesystemlog.asl and test_data/2019.09.26.asl (stored
+gzip-compressed) at commit 91b6849503b125267d00ea134248e4fe59e5479c (SHA-256):
+
+  applesystemlog.asl  82eaa74197b995f5511cc8192112617babbd2d5c928f70ced5f13648f51b0d59
+  2019.09.26.asl  4e813589afc3c907a4f14fcff9ea68f74409106a3e9b5082e30213bc0d5a4b6a
