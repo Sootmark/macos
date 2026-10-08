@@ -30,6 +30,7 @@ mod btm;
 mod fsevents;
 mod knowledgec;
 mod launchd;
+mod prefs;
 mod quarantine;
 mod table;
 mod tcc;
@@ -38,6 +39,7 @@ pub use btm::{is_background_items_name, read_background_items, BackgroundItem, B
 pub use fsevents::{is_fsevents_name, read_fsevents, FsEvent, FsEvents};
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
 pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
+pub use prefs::{read_prefs, PrefEntry, PrefKind, Prefs};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
 pub use tcc::{read_tcc, AuthReason, Authorization, ClientType, Tcc, TccEntry};
 
@@ -63,6 +65,9 @@ pub enum Artifact {
     /// A background items file (`backgrounditems.btm`,
     /// `BackgroundItems-v<n>.btm`): read with [`read_background_items`].
     BackgroundItems,
+    /// A property list of what the Mac did and was set to: read with
+    /// [`read_prefs`].
+    Prefs(PrefKind),
 }
 
 /// Whose a database is, as its path says.
@@ -95,6 +100,7 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
         _ if is_fsevents_name(base) && path.contains(".fseventsd/") => Some(Artifact::FsEvents),
         _ if is_background_items_name(base) => Some(Artifact::BackgroundItems),
+        _ if PrefKind::of_path(&path).is_some() => PrefKind::of_path(&path).map(Artifact::Prefs),
         _ if base
             .rsplit_once('.')
             .is_some_and(|(_, extension)| extension == "plist") =>

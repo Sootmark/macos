@@ -1,9 +1,9 @@
 [package]
 name = "sootmark-macos"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 rust-version = "1.80"
-description = "macOS artifacts for forensics: launchd jobs (LaunchAgents, LaunchDaemons), login items (backgrounditems.btm), FSEvents, quarantine events, TCC privacy permissions and KnowledgeC usage, read with sootmark-plist and sootmark-sqlite."
+description = "macOS artifacts for forensics: launchd jobs, login items, FSEvents, quarantine events, TCC permissions, KnowledgeC usage, installations, Wi-Fi, Bluetooth, accounts and Time Machine, read with sootmark-plist and sootmark-sqlite."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Sootmark/macos"
 homepage = "https://sootmark.com"

@@ -28,6 +28,20 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     }
     let _ = macos::read_fsevents(data);
     let _ = macos::read_background_items(data);
+    for kind in [
+        macos::PrefKind::InstallHistory,
+        macos::PrefKind::SoftwareUpdate,
+        macos::PrefKind::Airport,
+        macos::PrefKind::Bluetooth,
+        macos::PrefKind::AppleAccount,
+        macos::PrefKind::LoginItems,
+        macos::PrefKind::LoginWindow,
+        macos::PrefKind::User,
+        macos::PrefKind::StartupItem,
+        macos::PrefKind::TimeMachine,
+    ] {
+        let _ = macos::read_prefs(kind, data);
+    }
 }
 
 proptest! {
@@ -106,7 +120,12 @@ proptest! {
         bytes in proptest::collection::vec(any::<u8>(), 1..32),
         cut in 0usize..2000,
     ) {
-        for name in ["plaso/backgrounditems.btm", "plaso/fsevents-0000000002d89b58"] {
+        for name in [
+            "plaso/backgrounditems.btm",
+            "plaso/fsevents-0000000002d89b58",
+            "plaso/com.apple.loginitems.plist",
+            "plaso/user.plist",
+        ] {
             let mut data = support::fixture(name);
             for (i, b) in bytes.iter().enumerate() {
                 if let Some(slot) = data.get_mut(at + i) {
@@ -116,6 +135,8 @@ proptest! {
             data.truncate(cut);
             let _ = macos::read_fsevents(&data);
             let _ = macos::read_background_items(&data);
+            let _ = macos::read_prefs(macos::PrefKind::LoginItems, &data);
+            let _ = macos::read_prefs(macos::PrefKind::User, &data);
         }
     }
 }

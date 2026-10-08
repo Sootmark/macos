@@ -1,0 +1,39 @@
+StartupParameters.plist		My Awesome Service	The best service ever	Network, SystemLog	None
+com.apple.SoftwareUpdate.plist	LastFullSuccessful=1389030228000000	10.9.1 (13B42)	RAWCameraUpdate5.03 (031-2664)
+com.apple.TimeMachine.plist	Snapshot=1379165051000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1380098455000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1380810276000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1381883538000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1382647890000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1383351739000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1384090020000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1385130914000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1386265911000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1386689852000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1387723091000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1388840950000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.TimeMachine.plist	Snapshot=1388842718000000	5B33C22B-A4A1-4024-A2F5-C9979C4AAAAA	BackUpFast
+com.apple.airport.preferences.plist	LastConnected=1375144166000000	europa	WPA/WPA2 Personal
+com.apple.airport.preferences.plist	LastConnected=1386874984000000	CampusNet	Open
+com.apple.airport.preferences.plist	LastConnected=1386949546000000	Bose SoundLink Air Network	Open
+com.apple.airport.preferences.plist	LastConnected=1386950747000000	Boingo Hotspot	Open
+com.apple.bluetooth.plist	LastInquiryUpdate=1301012201414766	44-00-00-00-00-03		false
+com.apple.bluetooth.plist	LastInquiryUpdate=1341957896010535	44-00-00-00-00-00		true
+com.apple.bluetooth.plist	LastInquiryUpdate=1341957900020117	44-00-00-00-00-02	test-macpro	false
+com.apple.bluetooth.plist	LastInquiryUpdate=1350666385239662	44-00-00-00-00-01	test-mac	false
+com.apple.bluetooth.plist	LastInquiryUpdate=1351818797324095	44-00-00-00-00-04	Apple Magic Trackpad 2	true
+com.apple.bluetooth.plist	LastInquiryUpdate=1351827808261762	00-0d-fd-00-00-00	BT Headphone	false
+com.apple.bluetooth.plist	LastNameUpdate=1302199013524275	44-00-00-00-00-02	test-macpro	false
+com.apple.bluetooth.plist	LastNameUpdate=1345251268370453	00-0d-fd-00-00-00	BT Headphone	false
+com.apple.bluetooth.plist	LastNameUpdate=1350666391557044	44-00-00-00-00-01	test-mac	false
+com.apple.bluetooth.plist	LastNameUpdate=1351819298997673	44-00-00-00-00-04	Apple Magic Trackpad 2	true
+com.apple.bluetooth.plist	LastServicesUpdate=1345251192528750	00-0d-fd-00-00-00	BT Headphone	false
+com.apple.bluetooth.plist	LastServicesUpdate=1351818803000000	44-00-00-00-00-04	Apple Magic Trackpad 2	true
+com.apple.coreservices.appleidauthenticationinfo.ABC0ABC1-ABC0-ABC0-ABC0-ABC0ABC1ABC2.plist	Created=1372106802000000	email@domain.com	Joaquin	Moreno Garijo
+com.apple.coreservices.appleidauthenticationinfo.ABC0ABC1-ABC0-ABC0-ABC0-ABC0ABC1ABC2.plist	LastSuccessfulConnect=1387980032000000	email@domain.com	Joaquin	Moreno Garijo
+com.apple.coreservices.appleidauthenticationinfo.ABC0ABC1-ABC0-ABC0-ABC0-ABC0ABC1ABC2.plist	Validated=1387980032000000	email@domain.com	Joaquin	Moreno Garijo
+com.apple.loginitems.plist	TargetCreated=1522038785000000	iTunesHelper	true	/Applications/iTunes.app/Contents/MacOS/iTunesHelper.app	Macintosh HD	/
+com.apple.loginitems.plist	VolumeCreated=1475948046000000	iTunesHelper	true	/Applications/iTunes.app/Contents/MacOS/iTunesHelper.app	Macintosh HD	/
+loginwindow.plist		login application	/Applications/SafeConnect.app	true
+loginwindow.plist		login hook	/Users/matthew/login.sh	logout hook	/Users/matthew/logout.sh
+user.plist	PasswordLastSet=1388205347000000	user	Joaquin Moreno	/Users/user	501	0

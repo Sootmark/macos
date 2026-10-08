@@ -30,3 +30,17 @@ fseventsd writes them; SHA-256):
   fsevents-00000000001a0b79  63fef94bc2cee7cfef64c198f4c25ed1b8c10ea701eb2ddfc5cffdc1e9f8d698
   fsevents-0000000002d89b58  30a0d8455d4672765e30cd1f9ada5975cbc85a998877e4ac7a28d926abff48c7
   backgrounditems.btm        504ec4181f994abf92f62fcf03e81d450146e1a0c4e940ef9ada075bde6fbc63
+
+Also from test_data/plist/ at commit 91b6849503b125267d00ea134248e4fe59e5479c,
+unmodified (SHA-256):
+
+  InstallHistory.plist  234bd265af67660520d6083768a3ae3c92dd102a0c7214a628c8b25518b49317
+  StartupParameters.plist  8c33b460bd847c73312281a79dacf7f1e2f8f9c23dac821ac5f20d6c81c8d94e
+  com.apple.SoftwareUpdate.plist  892a4dfb22241395e76443fa833bf076acb1edd69110e37f558592ac7181c64c
+  com.apple.airport.preferences.plist  1ebebba60d78b89032ec28f63a83cea4f0c2b2b4e1aa9dee15a7bab297fb7fc7
+  com.apple.bluetooth.plist  21cdf076cf0cf777c92ef024c1f99fa6c265460d8e309ac319d00dd4eb649fff
+  com.apple.coreservices.appleidauthenticationinfo.ABC0ABC1-ABC0-ABC0-ABC0-ABC0ABC1ABC2.plist  a5179e60561651a414433cfe322a55ee16251a3df2647ace5e20f516c32fbb87
+  com.apple.loginitems.plist  c35e31a8a25c61ff0fc3ebac44e949229b4185057f0c11bcc8d3c0db3ff37d22
+  loginwindow.plist  27ab0a420b39f1b9a27504f705ad7392f3c3f6ae60361f0fcc8a9fe9c6e82446
+  user.plist  8cd9a6cade5bd3d6b75110a43095aa40506205bec3e21a20f37642dca8dae322
+  com.apple.TimeMachine.plist  0c8dad3aabfc867907b9afebb2683b4862dfb03d3ecd3d94481a09f5bfcf8d58
