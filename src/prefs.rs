@@ -1,8 +1,8 @@
 //! macOS property lists that record what a Mac did and was set to: one
 //! record per thing they describe (a package installed, a Wi-Fi network, a
 //! Bluetooth device, an Apple account, a login item or hook, a local
-//! account, a startup item, a Time Machine destination), with its times
-//! and values.
+//! account, a startup item, a Time Machine destination, a Spotlight search,
+//! a Spotlight store), with its times and values.
 //!
 //! - `/Library/Receipts/InstallHistory.plist`: each installation, its
 //!   time, name, version, installer and packages.
@@ -30,6 +30,14 @@
 //!   (legacy persistence): what it provides and uses.
 //! - `/Library/Preferences/com.apple.TimeMachine.plist`: each backup
 //!   destination, its name and every snapshot's time.
+//! - `~/Library/Preferences/com.apple.spotlight.plist`: what was searched
+//!   for with Spotlight and opened from its results (`UserShortcuts`: each
+//!   term typed, the item it led to, its display name and when it was last
+//!   chosen).
+//! - `/.Spotlight-V100/VolumeConfiguration.plist`, at the root of each
+//!   indexed volume: its Spotlight stores (`Stores`: each store's UUID, the
+//!   path it indexes, when it was created and its policy set) and the paths
+//!   excluded from indexing (`Exclusions`).
 
 use common::time::Ts;
 use plist::Value;
@@ -59,6 +67,10 @@ pub enum PrefKind {
     StartupItem,
     /// `com.apple.TimeMachine.plist`.
     TimeMachine,
+    /// `com.apple.spotlight.plist`.
+    SpotlightShortcuts,
+    /// `.Spotlight-V100/VolumeConfiguration.plist`.
+    SpotlightVolume,
 }
 
 impl PrefKind {
@@ -76,6 +88,8 @@ impl PrefKind {
             Self::User => "user",
             Self::StartupItem => "startup_item",
             Self::TimeMachine => "time_machine",
+            Self::SpotlightShortcuts => "spotlight_shortcuts",
+            Self::SpotlightVolume => "spotlight_volume",
         }
     }
 
@@ -94,6 +108,8 @@ impl PrefKind {
             "com.apple.loginwindow.plist" | "loginwindow.plist" => Self::LoginWindow,
             "startupparameters.plist" => Self::StartupItem,
             "com.apple.timemachine.plist" => Self::TimeMachine,
+            "com.apple.spotlight.plist" => Self::SpotlightShortcuts,
+            "volumeconfiguration.plist" => Self::SpotlightVolume,
             _ if base.starts_with("com.apple.coreservices.appleidauthenticationinfo.") => {
                 Self::AppleAccount
             }
@@ -192,6 +208,8 @@ pub fn read_prefs(kind: PrefKind, data: &[u8]) -> Prefs {
         PrefKind::User => user(&root),
         PrefKind::StartupItem => startup_item(&root),
         PrefKind::TimeMachine => time_machine(&root),
+        PrefKind::SpotlightShortcuts => spotlight_shortcuts(&root),
+        PrefKind::SpotlightVolume => spotlight_volume(&root),
     };
     prefs
 }
@@ -518,6 +536,50 @@ fn time_machine(root: &Value) -> Vec<PrefEntry> {
             entry
         })
         .collect()
+}
+
+/// One entry per term searched for: the item chosen for it and when.
+fn spotlight_shortcuts(root: &Value) -> Vec<PrefEntry> {
+    dictionary(root.get("UserShortcuts"))
+        .iter()
+        .map(|(term, shortcut)| {
+            let mut entry = PrefEntry::new(term.clone());
+            entry.time("LastUsed", shortcut.get("LAST_USED"));
+            entry.field("Term", Some(term.clone()));
+            entry.field("DisplayName", text(shortcut.get("DISPLAY_NAME")));
+            entry.field("Path", text(shortcut.get("PATH")));
+            entry
+        })
+        .collect()
+}
+
+/// One entry per store (`Kind` `store`, by its UUID) and per path excluded
+/// from indexing (`Kind` `exclusion`).
+fn spotlight_volume(root: &Value) -> Vec<PrefEntry> {
+    let mut entries: Vec<PrefEntry> = dictionary(root.get("Stores"))
+        .iter()
+        .map(|(id, store)| {
+            let mut entry = PrefEntry::new(id.clone());
+            entry.time("Created", store.get("CreationDate"));
+            entry.time("PolicySet", store.get("PolicyDate"));
+            entry.field("Kind", Some("store".to_owned()));
+            entry.field("StoreId", Some(id.clone()));
+            entry.field("PartialPath", text(store.get("PartialPath")));
+            entry.field("PolicyLevel", text(store.get("PolicyLevel")));
+            entry.field("CreationVersion", text(store.get("CreationVersion")));
+            entry
+        })
+        .collect();
+    for path in array(root.get("Exclusions"))
+        .iter()
+        .filter_map(|p| text(Some(p)))
+    {
+        let mut entry = PrefEntry::new(path.clone());
+        entry.field("Kind", Some("exclusion".to_owned()));
+        entry.field("Path", Some(path));
+        entries.push(entry);
+    }
+    entries
 }
 
 /// The volume name a classic alias record holds (a length byte at offset

@@ -1,10 +1,10 @@
 # macos
 
-macOS artifacts for forensics: launchd jobs (LaunchAgents and LaunchDaemons, macOS's main persistence), and those kept in SQLite databases: where each downloaded file came from (quarantine events), which apps were allowed the camera, the microphone, the screen, the whole disk (TCC), and which apps were in front, when the screen was on and the device locked (KnowledgeC). Two dependencies, its siblings `sootmark-common` (times) and `sootmark-sqlite` (the databases, read without SQLite).
+macOS artifacts for forensics: launchd jobs (LaunchAgents and LaunchDaemons, macOS's main persistence), and those kept in SQLite databases: where each downloaded file came from (quarantine events), which apps were allowed the camera, the microphone, the screen, the whole disk (TCC), and which apps were in front, when the screen was on and the device locked (KnowledgeC), messages sent and received (Messages); and others: FSEvents, login items, property lists of what the Mac did (installations, networks, devices, accounts, Spotlight searches), the Apple System Log, keychain items (never their secrets). Three dependencies, its siblings `sootmark-common` (times), `sootmark-plist` (property lists) and `sootmark-sqlite` (the databases, read without SQLite).
 
 ```toml
 [dependencies]
-sootmark-macos = "0.6"
+sootmark-macos = "0.8"
 ```
 
 ```rust
@@ -51,6 +51,9 @@ for problem in &knowledgec.problems {
 - `read_document_versions(database, wal)`: the document revisions database (`/.DocumentRevisions-V100/db-V1/db.sqlite`): every saved version of a document, with the document's path, when it was last seen, where the version is kept, when it was saved, by which user (`PerUID/<id>`) and app, and its size; versions outlive the documents.
 - `read_notes(database, wal)`: Notes before macOS 10.11 (`NotesV7.storedata`): each note's title, text (its HTML removed), creation and edit times.
 - `read_notifications(database, wal)`: Notification Center (`com.apple.notificationcenter/db2/db`, and `group.com.apple.usernoted/db2/db` from macOS 15): each notification's app, delivery time, whether it was shown, and its title, subtitle and body from the record's property list.
+- `read_messages(database, wal)`: Messages (`~/Library/Messages/chat.db`, iOS's `sms.db`): every iMessage and SMS, with its GUID, text (from `attributedBody`, the archived `NSAttributedString`, when `text` is empty, as from macOS 13), the other party (phone number or address), service, local account, sent or received, read, when it was sent, delivered and read (seconds or, from about macOS 10.13, nanoseconds since 2001), the conversation and its attachments' paths; messages without a handle (a group's) are kept; and the client version.
+- `read_keychain(data)`: file keychains (`login.keychain`, `login.keychain-db`, `System.keychain`; `kych`, version 1.0): every item of every relation but the schema and the database's own blob, read by the schema the file holds: application and internet passwords, AppleShare passwords, certificates and keys, with all their attributes by name and format (`get`, `text`, `four_cc`, `time`) and accessors for the name, account, service, server, protocol (named: `htps` is `https`), creation and modification times. Secrets are never read: a record's data (a password's encrypted `ssgp` blob, a key's wrapped bytes) is skipped.
+- `read_prefs` also reads Spotlight's property lists: `com.apple.spotlight.plist` (each term searched for, the item chosen for it, its display name and when it was last chosen) and `/.Spotlight-V100/VolumeConfiguration.plist` (each store's UUID, the path it indexes, its policy, when it was created and its policy set; and the paths excluded from indexing). The store itself (`store.db`) is read by `sootmark-spotlight`.
 
 ## Not yet
 
@@ -59,6 +62,8 @@ for problem in &knowledgec.problems {
 - KnowledgeC's other metadata (`ZSTRUCTUREDMETADATA` has a hundred-odd keys), `ZCUSTOMMETADATA`, and naming `ZVALUEINTEGER`'s meaning per stream.
 - The quarantine type number as a kind: Apple documents the kinds as strings (`LSQuarantine.h`), not their numbers in this table.
 - Quarantine events V1 (Mac OS X 10.5 and 10.6, `com.apple.LaunchServices.QuarantineEvents`), and Biome (`SEGB` files, not SQLite), where recent macOS versions keep much of what KnowledgeC kept.
+- Messages' `attributedBody` beyond its string (mentions, links, edits), `message_summary_info` (edited and unsent messages), and the `deleted_messages` table.
+- Keychains: decoding certificates' DER attributes (subject, issuer) into names, and the data-protection keychain of iOS and Apple silicon Macs (`keychain-2.db`, SQLite, encrypted).
 
 ## How it's checked
 
@@ -73,6 +78,7 @@ for problem in &knowledgec.problems {
 - Property lists: plaso's test plists, every event its `macos_bluetooth`, `apple_id`, `airport`, `time_machine`, `macos_software_update`, `macuser`, `macos_login_items_plist`, `macos_login_window_plist` and `macos_startup_item_plist` plugins read, read the same; `InstallHistory.plist` against the values it holds.
 - ASL: plaso's `applesystemlog.asl` and `2019.09.26.asl`, every one of the 320 messages its `asl_log` parser reads, read the same.
 - Application usage, document versions, Notes and Notification Center: plaso's test databases, every one of the 25 events its `appusage`, `mac_document_versions`, `mac_notes` and `mac_notificationcenter` plugins read, read the same (`tests/oracle/plaso-usage.tsv`); plaso gives a document's folder where this gives its path.
+- Spotlight property lists, Messages and keychains: plaso's `com.apple.spotlight.plist`, `VolumeConfiguration.plist`, `imessage_chat.db` and `login.keychain` (commit `91b6849`), against plaso 20260720's `plist/spotlight`, `plist/spotlight_volume`, `sqlite/imessage` and `mac_keychain` (`tests/oracle/plaso-spotlight-prefs.tsv`, `plaso-messages.tsv`, `plaso-keychain.tsv`, made by `tests/oracle/gen_events.py`, whose header gives the commands): all 11 Spotlight, 10 message and 8 keychain events identical, every value plaso shows, but for the keychain's `ssgp_hash`: plaso shows a password's whole encrypted blob (label, IV and ciphertext), which this crate never reads. Beyond plaso: the keychain's four symmetric keys and every attribute by its schema name, the messages' GUIDs, accounts, conversations and read times, a store's policy, an exclusion, and `attributedBody` text (unit tests on archived strings: Messages databases with them aren't in plaso's test data). plaso's query joins handles, so it drops messages without one; plaso names a keychain item's creator code `comments`.
 
 ## Licence
 

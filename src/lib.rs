@@ -14,6 +14,9 @@
 //!   (each user's) ([`read_knowledgec`]): app focus and usage, display
 //!   backlight, device lock, Safari visits and the other event streams
 //!   over time.
+//! - Messages, `~/Library/Messages/chat.db` ([`read_messages`]): each
+//!   iMessage and SMS, its text, the other party, the conversation, its
+//!   attachments, and when it was sent, delivered and read.
 //!
 //! Times are Mac absolute time (seconds since 2001-01-01 UTC) except TCC's,
 //! which are Unix seconds; both are UTC. Columns are read by name: one a
@@ -22,6 +25,12 @@
 //! beside it, empty when there is none), whose committed changes it
 //! applies: the latest events are often only there. Damage is listed in
 //! `problems`, never a panic.
+//!
+//! Others are files of their own formats: launchd jobs ([`read_launchd`]),
+//! FSEvents ([`read_fsevents`]), background items
+//! ([`read_background_items`]), property lists ([`read_prefs`]), the Apple
+//! System Log ([`read_asl`]) and keychains ([`read_keychain`]: each item's
+//! name, account, server and times, never its secret).
 
 use common::time::Ts;
 use sqlite::Database;
@@ -29,8 +38,10 @@ use sqlite::Database;
 mod asl;
 mod btm;
 mod fsevents;
+mod keychain;
 mod knowledgec;
 mod launchd;
+mod messages;
 mod prefs;
 mod quarantine;
 mod table;
@@ -40,8 +51,10 @@ mod usage;
 pub use asl::{is_asl, read_asl, Asl, AslRecord};
 pub use btm::{is_background_items_name, read_background_items, BackgroundItem, BackgroundItems};
 pub use fsevents::{is_fsevents_name, read_fsevents, FsEvent, FsEvents};
+pub use keychain::{read_keychain, AttributeValue, ItemKind, Keychain, KeychainItem};
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
 pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
+pub use messages::{read_messages, Message, Messages};
 pub use prefs::{read_prefs, PrefEntry, PrefKind, Prefs};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
 pub use tcc::{read_tcc, AuthReason, Authorization, ClientType, Tcc, TccEntry};
@@ -89,6 +102,12 @@ pub enum Artifact {
     /// db`, `group.com.apple.usernoted/db2/db`): read with
     /// [`read_notifications`].
     Notifications,
+    /// A Messages database (`chat.db`, iOS's `sms.db`): read with
+    /// [`read_messages`].
+    Messages,
+    /// A keychain (`*.keychain`, `*.keychain-db`): read with
+    /// [`read_keychain`].
+    Keychain,
 }
 
 /// Whose a database is, as its path says.
@@ -121,6 +140,10 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
         "application_usage.sqlite" => Some(Artifact::AppUsage),
         "notesv7.storedata" => Some(Artifact::Notes),
+        "chat.db" | "sms.db" => Some(Artifact::Messages),
+        _ if base.ends_with(".keychain") || base.ends_with(".keychain-db") => {
+            Some(Artifact::Keychain)
+        }
         _ if path.ends_with(".documentrevisions-v100/db-v1/db.sqlite") => {
             Some(Artifact::DocumentVersions)
         }
@@ -295,6 +318,27 @@ mod tests {
             (
                 "/Users/a/Library/Group Containers/group.com.apple.usernoted/db2/db",
                 Some(Artifact::Notifications),
+            ),
+            (
+                "/Users/a/Library/Messages/chat.db",
+                Some(Artifact::Messages),
+            ),
+            ("chat.db-wal", None),
+            (
+                "/Users/a/Library/Keychains/login.keychain-db",
+                Some(Artifact::Keychain),
+            ),
+            (
+                "/Library/Keychains/System.keychain",
+                Some(Artifact::Keychain),
+            ),
+            (
+                "/Users/a/Library/Preferences/com.apple.spotlight.plist",
+                Some(Artifact::Prefs(PrefKind::SpotlightShortcuts)),
+            ),
+            (
+                "/.Spotlight-V100/VolumeConfiguration.plist",
+                Some(Artifact::Prefs(PrefKind::SpotlightVolume)),
             ),
             ("TCC.db-shm", None),
             ("History", None),

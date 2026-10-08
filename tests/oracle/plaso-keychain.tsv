@@ -1,0 +1,8 @@
+macos:keychain:application	Content Modification Time	1390747949000000	account_name=moxilo	entry_name=Secret Application
+macos:keychain:application	Content Modification Time	1390748009000000	entry_name=Secret Note	text_description=secure note
+macos:keychain:application	Creation Time	1390747908000000	account_name=moxilo	entry_name=Secret Application
+macos:keychain:application	Creation Time	1390748009000000	entry_name=Secret Note	text_description=secure note
+macos:keychain:internet	Content Modification Time	1390748073000000	account_name=MrMoreno	entry_name=plaso.kiddaland.net	protocol=http	type_protocol=dflt	where=plaso.kiddaland.net
+macos:keychain:internet	Content Modification Time	1390748120000000	account_name=moxilo	entry_name=imap.gmail.com	protocol=smtp	type_protocol=dflt	where=imap.gmail.com
+macos:keychain:internet	Creation Time	1390748073000000	account_name=MrMoreno	entry_name=plaso.kiddaland.net	protocol=http	type_protocol=dflt	where=plaso.kiddaland.net
+macos:keychain:internet	Creation Time	1390748120000000	account_name=moxilo	entry_name=imap.gmail.com	protocol=smtp	type_protocol=dflt	where=imap.gmail.com

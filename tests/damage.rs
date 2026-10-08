@@ -6,7 +6,7 @@ mod support;
 use proptest::prelude::*;
 
 /// Every artifact, every schema version.
-const DATABASES: [&str; 10] = [
+const DATABASES: [&str; 11] = [
     "plaso/quarantine.db",
     "plaso/TCC-test.db",
     "plaso/knowledgec-10.13.db.gz",
@@ -17,6 +17,7 @@ const DATABASES: [&str; 10] = [
     "plaso/document_versions.sql",
     "plaso/NotesV7.storedata",
     "plaso/mac_notificationcenter.db",
+    "plaso/imessage_chat.db.gz",
 ];
 
 const DATABASE: &str = "synthetic/knowledgeC.db";
@@ -37,6 +38,17 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     let _ = macos::read_document_versions(data, wal);
     let _ = macos::read_notes(data, wal);
     let _ = macos::read_notifications(data, wal);
+    let _ = macos::read_messages(data, wal);
+    if let Ok(keychain) = macos::read_keychain(data) {
+        for item in &keychain.items {
+            let _ = (
+                item.name(),
+                item.protocol(),
+                item.created(),
+                item.four_cc("crtr"),
+            );
+        }
+    }
     for kind in [
         macos::PrefKind::InstallHistory,
         macos::PrefKind::SoftwareUpdate,
@@ -48,6 +60,8 @@ fn read_everything(data: &[u8], wal: &[u8]) {
         macos::PrefKind::User,
         macos::PrefKind::StartupItem,
         macos::PrefKind::TimeMachine,
+        macos::PrefKind::SpotlightShortcuts,
+        macos::PrefKind::SpotlightVolume,
     ] {
         let _ = macos::read_prefs(kind, data);
     }
@@ -73,6 +87,29 @@ proptest! {
 
     #[test]
     fn arbitrary_bytes_never_panic(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
+        read_everything(&data, &[]);
+    }
+
+    /// A keychain's header with arbitrary tables behind it.
+    #[test]
+    fn arbitrary_keychain_tables_never_panic(tail in proptest::collection::vec(any::<u8>(), 0..4096)) {
+        let mut data = b"kych\x00\x01\x00\x00\x00\x00\x00\x10\x00\x00\x00\x14\x00\x00\x00\x00".to_vec();
+        data.extend(tail);
+        read_everything(&data, &[]);
+    }
+
+    /// A real keychain damaged anywhere, many times over.
+    #[test]
+    fn damaged_keychains_never_panic(
+        flips in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..60),
+        cut in any::<usize>(),
+    ) {
+        let mut data = support::fixture("plaso/login.keychain");
+        for &(at, byte) in &flips {
+            let at = at % data.len();
+            data[at] = byte;
+        }
+        data.truncate(1 + cut % data.len());
         read_everything(&data, &[]);
     }
 
@@ -135,6 +172,8 @@ proptest! {
             "plaso/com.apple.loginitems.plist",
             "plaso/user.plist",
             "plaso/applesystemlog.asl",
+            "plaso/login.keychain",
+            "plaso/com.apple.spotlight.plist",
         ] {
             let mut data = support::fixture(name);
             for (i, b) in bytes.iter().enumerate() {
@@ -148,6 +187,8 @@ proptest! {
             let _ = macos::read_prefs(macos::PrefKind::LoginItems, &data);
             let _ = macos::read_prefs(macos::PrefKind::User, &data);
             let _ = macos::read_asl(&data);
+            let _ = macos::read_keychain(&data);
+            let _ = macos::read_prefs(macos::PrefKind::SpotlightShortcuts, &data);
         }
     }
 }

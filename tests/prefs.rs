@@ -5,7 +5,10 @@
 //! `macos_startup_item_plist`) read, read the same
 //! (`tests/oracle/plaso-prefs.tsv`, written from plaso's output); and
 //! `InstallHistory.plist`, which plaso's command line doesn't read,
-//! against the values the file holds.
+//! against the values the file holds; and the Spotlight property lists,
+//! every event its `spotlight` and `spotlight_volume` plugins read
+//! (`tests/oracle/plaso-spotlight-prefs.tsv`, written by
+//! `tests/oracle/gen_events.py`).
 
 mod support;
 
@@ -51,6 +54,8 @@ fn rows(name: &str, kind: PrefKind, entry: &PrefEntry) -> Vec<String> {
             get("OrderPreference"),
         ],
         PrefKind::InstallHistory => vec![get("Name")],
+        PrefKind::SpotlightShortcuts => vec![get("Term"), get("DisplayName"), get("Path")],
+        PrefKind::SpotlightVolume => vec![get("Kind"), get("StoreId"), get("PartialPath")],
     };
     let row = |when: String| {
         [vec![name.to_owned(), when], values.clone()]
@@ -141,4 +146,111 @@ fn install_history() {
         .get("Packages")
         .unwrap()
         .starts_with("com.apple.pkg.BaseSystemBinaries, "));
+}
+
+/// A Spotlight entry as plaso's events: data type, which time, the time in
+/// microseconds, values.
+fn spotlight_lines(kind: PrefKind, entry: &PrefEntry) -> Vec<String> {
+    let get = |field: &str| entry.get(field).map(str::to_owned);
+    let (data_type, time, desc, values) = match kind {
+        PrefKind::SpotlightShortcuts => (
+            "spotlight_searched_terms:entry",
+            "LastUsed",
+            "Last Used Time",
+            vec![
+                ("application_display_name", get("DisplayName")),
+                ("path", get("Path")),
+                ("search_term", get("Term")),
+            ],
+        ),
+        // plaso reads the stores, not the exclusions.
+        _ if entry.get("Kind") == Some("exclusion") => return Vec::new(),
+        _ => (
+            "spotlight_volume_configuration:store",
+            "Created",
+            "Creation Time",
+            vec![
+                ("partial_path", get("PartialPath")),
+                ("volume_identifier", get("StoreId")),
+            ],
+        ),
+    };
+    entry
+        .times
+        .iter()
+        .filter(|(name, _)| *name == time)
+        .map(|(_, ts)| {
+            let mut cells = vec![
+                data_type.to_owned(),
+                desc.to_owned(),
+                (ts.ticks().unwrap() / 10).to_string(),
+            ];
+            cells.extend(
+                values
+                    .iter()
+                    .filter_map(|(key, value)| Some(format!("{key}={}", value.as_ref()?))),
+            );
+            cells.join("\t")
+        })
+        .collect()
+}
+
+#[test]
+fn spotlight_as_plaso_reads_them() {
+    let mut got = Vec::new();
+    for (name, path) in [
+        (
+            "com.apple.spotlight.plist",
+            "Users/a/Library/Preferences/com.apple.spotlight.plist",
+        ),
+        (
+            "VolumeConfiguration.plist",
+            ".Spotlight-V100/VolumeConfiguration.plist",
+        ),
+    ] {
+        let Some(Artifact::Prefs(kind)) = detect(path) else {
+            panic!("{path}: not detected");
+        };
+        let prefs = read_prefs(kind, &support::fixture(&format!("plaso/{name}")));
+        assert_eq!(prefs.problems, Vec::<String>::new(), "{name}");
+        for entry in &prefs.entries {
+            got.extend(spotlight_lines(kind, entry));
+        }
+    }
+    got.sort();
+    let expected: Vec<&str> = include_str!("oracle/plaso-spotlight-prefs.tsv")
+        .lines()
+        .collect();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn spotlight_beyond_plaso() {
+    let prefs = read_prefs(
+        PrefKind::SpotlightVolume,
+        &support::fixture("plaso/VolumeConfiguration.plist"),
+    );
+    let root = prefs
+        .entries
+        .iter()
+        .find(|e| e.get("PartialPath") == Some("/"))
+        .unwrap();
+    assert_eq!(
+        root.get("PolicyLevel"),
+        Some("kMDConfigSearchLevelReadWrite")
+    );
+    assert_eq!(
+        root.times[1].1.to_iso8601().as_deref(),
+        Some("2013-05-27T12:27:37.0000000Z")
+    );
+    // The test file excludes nothing; one that does.
+    assert!(prefs.entries.iter().all(|e| e.get("Kind") == Some("store")));
+    let excluding = br#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>Exclusions</key><array><string>/Users/a/Hidden</string></array>
+</dict></plist>"#;
+    let prefs = read_prefs(PrefKind::SpotlightVolume, excluding);
+    assert_eq!(prefs.entries.len(), 1);
+    assert_eq!(prefs.entries[0].get("Kind"), Some("exclusion"));
+    assert_eq!(prefs.entries[0].get("Path"), Some("/Users/a/Hidden"));
 }
