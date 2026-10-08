@@ -1,0 +1,25 @@
+These files are test data of puffyCid's macos-loginitems, under the MIT
+License (LICENSE, in this directory). Copyright (c) 2022 puffyCid.
+
+Source: https://github.com/puffyCid/macos-loginitems, tests/test_data/, at
+commit 75658db42a9adab87e9be6ef7d0e30d91d35fa7d (the same
+BackgroundItems-v4.btm is in puffyCid/artemis,
+forensics/tests/test_data/macos/loginitems/, at commit
+b23412776038a54dbbcbc73560dad8751a388151, also MIT).
+
+  BackgroundItems-v4.btm             a macOS 13 file, as published (an XML
+                                     property list), unmodified
+  backgrounditemsPoisonApple.btm     a macOS 10.13 to 12 file with a login
+                                     item PoisonApple added, unmodified
+  BackgroundItems-v4-binary.btm      BackgroundItems-v4.btm converted to a
+                                     binary property list, as macOS writes
+                                     these files, with macOS's own
+                                     `plutil -convert binary1` (converting
+                                     it back gives the XML file byte for
+                                     byte)
+
+SHA-256:
+
+  BackgroundItems-v4.btm          5ed2ea43f0f7877a5fa568ee854379e8749a82d41e865362da2239ee15d04792
+  backgrounditemsPoisonApple.btm  270395bc9ad1f262194da0ebd35682072f09ab4ec79ecbe0f31335c114ad8639
+  BackgroundItems-v4-binary.btm   873aa8ba0aa732bfd739860875c1dba4980d55223b036526d733792ef5845a69

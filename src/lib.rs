@@ -54,7 +54,9 @@ mod tcc;
 mod usage;
 
 pub use asl::{is_asl, read_asl, Asl, AslRecord};
-pub use btm::{is_background_items_name, read_background_items, BackgroundItem, BackgroundItems};
+pub use btm::{
+    is_background_items_name, read_background_items, BackgroundItem, BackgroundItems, ItemRecord,
+};
 pub use fsevents::{is_fsevents_name, read_fsevents, FsEvent, FsEvents};
 pub use keychain::{read_keychain, AttributeValue, ItemKind, Keychain, KeychainItem};
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};

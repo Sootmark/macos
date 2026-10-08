@@ -1,12 +1,18 @@
 //! Background items (`~/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm`,
-//! macOS 10.13 to 12, and `BackgroundItems-v<n>.btm`): the login items a
-//! user's session starts, macOS's per-user persistence.
+//! macOS 10.13 to 12, and `BackgroundItems-v<n>.btm`, macOS 13 and later):
+//! the login items, launch agents and daemons macOS lets start, its
+//! persistence.
 //!
 //! The file is an NSKeyedArchiver property list. Its `backgroundItems`
 //! (10.13 to 12) hold `allContainers`, each with a bookmark and
-//! `internalItems` (an array or an `NSHashTable`) of items with theirs; its `store` (later versions) holds
-//! `itemsByUserIdentifier`, each a list of items with a bookmark. A
-//! bookmark (`book`, as libyal's dtformats documents it) is a header, a
+//! `internalItems` (an array or an `NSHashTable`) of items with theirs; its
+//! `store` (later versions) holds `itemsByUserIdentifier`, a list of item
+//! records per user, each with a name, a URL, an executable, identifiers,
+//! a type and a disposition, and for apps a bookmark. Records without a
+//! bookmark (launch daemons and agents, the developers grouping them) are
+//! kept as well.
+//!
+//! A bookmark (`book`, as libyal's dtformats documents it) is a header, a
 //! data area and a table of contents of tagged values: the target's path
 //! components (`0x1004`) and creation time (`0x1040`), the volume's mount
 //! point (`0x2002`), name (`0x2010`), creation time (`0x2013`) and flags
@@ -17,6 +23,8 @@ use plist::Value;
 
 /// The data area's offset in a bookmark.
 const DATA_AREA: usize = 48;
+/// Upper-case hexadecimal digits.
+const HEX: &[u8; 16] = b"0123456789ABCDEF";
 
 /// A login item.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -35,6 +43,39 @@ pub struct BackgroundItem {
     pub volume_created: Option<Ts>,
     /// The volume's flags, masked by those valid.
     pub volume_flags: Option<u64>,
+    /// What `BackgroundItems-v<n>.btm` records about the item.
+    pub record: Option<ItemRecord>,
+}
+
+/// An item record of `BackgroundItems-v<n>.btm` (macOS 13 and later).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ItemRecord {
+    /// The user it belongs to: its key in `itemsByUserIdentifier` (a UUID).
+    pub user: String,
+    /// The record's own UUID (`uuid`).
+    pub uuid: Option<String>,
+    /// Its name (`name`): the app, or the launchd job's program.
+    pub name: Option<String>,
+    /// `identifier`: a bundle identifier or launchd label, a code signing
+    /// requirement, or a developer's name.
+    pub identifier: Option<String>,
+    /// `url`: the app or launchd property list, as archived.
+    pub url: Option<String>,
+    /// `executablePath`: the program it starts.
+    pub executable_path: Option<String>,
+    /// `bundleIdentifier`.
+    pub bundle_identifier: Option<String>,
+    /// `teamIdentifier`: the signing team.
+    pub team_identifier: Option<String>,
+    /// `developerName`.
+    pub developer_name: Option<String>,
+    /// `container`: the identifier of the record it's grouped under.
+    pub container: Option<String>,
+    /// `type`: what it is, a bit set (`0x2` an app, `0x20` a developer,
+    /// `0x10010` a legacy launch daemon).
+    pub kind: Option<u64>,
+    /// `disposition`: its state, a bit set (`0x1` enabled, `0x2` allowed).
+    pub disposition: Option<u64>,
 }
 
 /// A file's items and what couldn't be read.
@@ -76,17 +117,17 @@ pub fn read_background_items(data: &[u8]) -> BackgroundItems {
     // their containers, which it reports as cycles; what an item lacks
     // shows below.
     let root = unarchived.value.get("root").unwrap_or(&unarchived.value);
-    let mut bookmarks: Vec<&[u8]> = Vec::new();
+    let mut found: Vec<(Option<&[u8]>, Option<ItemRecord>)> = Vec::new();
     if let Some(items) = root.get("backgroundItems") {
         for container in items
             .get("allContainers")
             .and_then(Value::as_array)
             .unwrap_or_default()
         {
-            bookmarks.extend(bookmark_data(container.get("bookmark")));
+            found.extend(bookmark_data(container.get("bookmark")).map(|b| (Some(b), None)));
             if let Some(internal) = container.get("internalItems") {
                 for item in members(internal) {
-                    bookmarks.extend(bookmark_data(item.get("bookmark")));
+                    found.extend(bookmark_data(item.get("bookmark")).map(|b| (Some(b), None)));
                 }
             }
         }
@@ -95,22 +136,77 @@ pub fn read_background_items(data: &[u8]) -> BackgroundItems {
             .get("itemsByUserIdentifier")
             .and_then(Value::as_dictionary)
             .unwrap_or_default();
-        for (_, items) in users {
+        for (user, items) in users {
             for item in items.as_array().unwrap_or_default() {
-                bookmarks.extend(bookmark_data(item.get("bookmark")));
+                let record = item_record(user, item);
+                found.push((bookmark_data(item.get("bookmark")), Some(record)));
             }
         }
     } else {
         out.problems
             .push("neither backgroundItems nor store".to_owned());
     }
-    for data in bookmarks {
-        match bookmark(data) {
-            Ok(item) => out.items.push(item),
-            Err(why) => out.problems.push(format!("bookmark: {why}")),
-        }
+    for (data, record) in found {
+        let mut item = match data.map(bookmark) {
+            Some(Ok(item)) => item,
+            Some(Err(why)) => {
+                out.problems.push(format!("bookmark: {why}"));
+                if record.is_none() {
+                    continue;
+                }
+                BackgroundItem::default()
+            }
+            None => BackgroundItem::default(),
+        };
+        item.record = record;
+        out.items.push(item);
     }
     out
+}
+
+/// An item record's fields.
+fn item_record(user: &str, item: &Value) -> ItemRecord {
+    let text = |key: &str| item.get(key).and_then(Value::as_str).map(str::to_owned);
+    let number = |key: &str| item.get(key).and_then(Value::as_u64);
+    ItemRecord {
+        user: user.to_owned(),
+        uuid: item
+            .get("uuid")
+            .and_then(|u| u.get("NS.uuidbytes"))
+            .and_then(Value::as_data)
+            .and_then(uuid),
+        name: text("name"),
+        identifier: text("identifier"),
+        url: item.get("url").and_then(url),
+        executable_path: text("executablePath"),
+        bundle_identifier: text("bundleIdentifier"),
+        team_identifier: text("teamIdentifier"),
+        developer_name: text("developerName"),
+        container: text("container"),
+        kind: number("type"),
+        disposition: number("disposition"),
+    }
+}
+
+/// An `NSURL`'s text: its relative part, after its base's if it has one.
+fn url(value: &Value) -> Option<String> {
+    let relative = value.get("NS.relative").and_then(Value::as_str)?;
+    let base = value.get("NS.base").and_then(url).unwrap_or_default();
+    Some(format!("{base}{relative}"))
+}
+
+/// Sixteen bytes as a UUID (`E1E6BAB7-…`), in their order.
+fn uuid(bytes: &[u8]) -> Option<String> {
+    let bytes: &[u8; 16] = bytes.try_into().ok()?;
+    let mut text = String::with_capacity(36);
+    for (index, byte) in bytes.iter().enumerate() {
+        if matches!(index, 4 | 6 | 8 | 10) {
+            text.push('-');
+        }
+        text.push(char::from(HEX[usize::from(byte >> 4)]));
+        text.push(char::from(HEX[usize::from(byte & 0xf)]));
+    }
+    Some(text)
 }
 
 /// A collection's items: an array's elements, an `NSHashTable`'s (`$1`,
@@ -261,5 +357,15 @@ mod tests {
         assert!(bookmark(b"xxxx").is_err());
         assert!(bookmark(&[0; 8]).is_err());
         assert!(!read_background_items(b"not a plist").problems.is_empty());
+    }
+
+    #[test]
+    fn uuids() {
+        let bytes: Vec<u8> = (0..16).collect();
+        assert_eq!(
+            uuid(&bytes).as_deref(),
+            Some("00010203-0405-0607-0809-0A0B0C0D0E0F")
+        );
+        assert_eq!(uuid(&bytes[1..]), None);
     }
 }

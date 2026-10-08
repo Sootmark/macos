@@ -33,3 +33,19 @@ only time is the one in its header):
 
 (psort's -a keeps events it would drop as duplicates.) The other oracles'
 commands are in the headers of gen.sh, gen_events.py and gen_usage.py.
+
+btm.tsv: every item of the background items files (plaso's
+backgrounditems.btm and tests/fixtures/puffycid/, see its NOTICE) as
+Python's own plistlib, an NSKeyedArchiver resolver and a bookmark reader
+written in gen_btm.py read them, independently of this crate. plaso's
+macos_background_items_plist plugin (log2timeline/plaso:20260720) agrees
+on every bookmark it reads: iTunesHelper and Syncthing, the two creation
+times, volume name, mount point and flags. It reads the five other records
+of BackgroundItems-v4.btm as empty events (no bookmark), and fails on
+backgrounditemsPoisonApple.btm ("'list' object has no attribute 'get'":
+its internalItems are an array, not an NSHashTable).
+
+  cd tests/fixtures
+  python3 -I ../oracle/gen_btm.py plaso/backgrounditems.btm \
+    puffycid/backgrounditemsPoisonApple.btm puffycid/BackgroundItems-v4.btm \
+    puffycid/BackgroundItems-v4-binary.btm > ../oracle/btm.tsv
