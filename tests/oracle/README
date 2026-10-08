@@ -1,0 +1,35 @@
+plaso-wifi.tsv and plaso-launchd.tsv.gz: what plaso (the
+log2timeline/plaso:20260720 Docker image) reads from plaso's wifi.log,
+wifi_turned_over.log and macos_launchd.log (tests/fixtures/plaso/, see its
+NOTICE) with its text/mac_wifi and text/macos_launchd_log parsers, written
+by gen_logs.py from psort's JSON lines: one line per event, sorted: the
+file, the time, plaso's name for it, the parser, and every value plaso
+read as name=value. tests/logs.rs compares them.
+
+A Wi-Fi log has no years: plaso takes them from the file's times and the
+current year, so the oracle depends on both. It was made on 2026-10-08,
+on a Debian host with Docker, from a folder holding the logs as below
+(each copy's change time is when it was copied, in 2026; a gzip file's
+only time is the one in its header):
+
+  mkdir -p in/old in/y2025 in/y2026 in/gz in/launchd
+  cp wifi.log wifi_turned_over.log in/old/
+  cp wifi.log in/y2025/; cp wifi.log in/y2026/; cp wifi.log in/gz/
+  gzip -dc macos_launchd.log.gz > in/launchd/macos_launchd.log
+  touch -d "2014-01-05 12:00:00" in/old/wifi.log
+  touch -d "2017-01-03 12:00:00" in/old/wifi_turned_over.log
+  touch -d "2025-06-01 12:00:00" in/y2025/wifi.log
+  touch -d "2026-01-02 12:00:00" in/y2026/wifi.log
+  touch -d "2025-06-01 12:00:00" in/gz/wifi.log && gzip -9 in/gz/wifi.log
+
+  sudo docker run --rm -v "$PWD:/data" log2timeline/plaso:20260720 \
+    log2timeline --status_view none -q \
+    --parsers 'text/mac_wifi,text/macos_launchd_log' \
+    --storage-file /data/out.plaso /data/in
+  sudo docker run --rm -v "$PWD:/data" log2timeline/plaso:20260720 \
+    psort --status_view none -q -a -o json_line -w /data/out.jsonl /data/out.plaso
+  python3 -I gen_logs.py out.jsonl text/mac_wifi > plaso-wifi.tsv
+  python3 -I gen_logs.py out.jsonl text/macos_launchd_log | gzip -9n > plaso-launchd.tsv.gz
+
+(psort's -a keeps events it would drop as duplicates.) The other oracles'
+commands are in the headers of gen.sh, gen_events.py and gen_usage.py.

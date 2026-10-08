@@ -31,6 +31,10 @@
 //! ([`read_background_items`]), property lists ([`read_prefs`]), the Apple
 //! System Log ([`read_asl`]) and keychains ([`read_keychain`]: each item's
 //! name, account, server and times, never its secret).
+//!
+//! And text logs: Wi-Fi's `wifi.log` ([`read_wifi_log`], its years
+//! inferred as plaso infers them, see [`Years`]) and launchd's
+//! `launchd.log` ([`read_launchd_log`]).
 
 use common::time::Ts;
 use sqlite::Database;
@@ -41,6 +45,7 @@ mod fsevents;
 mod keychain;
 mod knowledgec;
 mod launchd;
+mod logs;
 mod messages;
 mod prefs;
 mod quarantine;
@@ -54,6 +59,7 @@ pub use fsevents::{is_fsevents_name, read_fsevents, FsEvent, FsEvents};
 pub use keychain::{read_keychain, AttributeValue, ItemKind, Keychain, KeychainItem};
 pub use knowledgec::{read_knowledgec, KnowledgeC, KnowledgeEvent};
 pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
+pub use logs::{read_launchd_log, read_wifi_log, LogLine, TextLog, WifiEvent, Years};
 pub use messages::{read_messages, Message, Messages};
 pub use prefs::{read_prefs, PrefEntry, PrefKind, Prefs};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
@@ -108,6 +114,12 @@ pub enum Artifact {
     /// A keychain (`*.keychain`, `*.keychain-db`): read with
     /// [`read_keychain`].
     Keychain,
+    /// Wi-Fi's log (`/var/log/wifi.log`, `wifi.log.<n>`): read with
+    /// [`read_wifi_log`].
+    WifiLog,
+    /// launchd's log (`/var/log/com.apple.xpc.launchd/launchd.log`,
+    /// `launchd.log.<n>`): read with [`read_launchd_log`].
+    LaunchdLog,
 }
 
 /// Whose a database is, as its path says.
@@ -141,6 +153,8 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "application_usage.sqlite" => Some(Artifact::AppUsage),
         "notesv7.storedata" => Some(Artifact::Notes),
         "chat.db" | "sms.db" => Some(Artifact::Messages),
+        _ if is_log_name(base, "wifi.log") => Some(Artifact::WifiLog),
+        _ if is_log_name(base, "launchd.log") => Some(Artifact::LaunchdLog),
         _ if base.ends_with(".keychain") || base.ends_with(".keychain-db") => {
             Some(Artifact::Keychain)
         }
@@ -165,6 +179,16 @@ pub fn detect(name: &str) -> Option<Artifact> {
         }
         _ => None,
     }
+}
+
+/// Whether `base` is the log `name` or a rotated copy (`name.<n>`).
+fn is_log_name(base: &str, name: &str) -> bool {
+    base.strip_prefix(name).is_some_and(|rest| {
+        rest.is_empty()
+            || rest
+                .strip_prefix('.')
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+    })
 }
 
 /// Where Notification Center keeps its database, before and from macOS 15.
@@ -340,6 +364,14 @@ mod tests {
                 "/.Spotlight-V100/VolumeConfiguration.plist",
                 Some(Artifact::Prefs(PrefKind::SpotlightVolume)),
             ),
+            ("/private/var/log/wifi.log", Some(Artifact::WifiLog)),
+            ("wifi.log.1", Some(Artifact::WifiLog)),
+            ("wifi.log.0.bz2", None),
+            (
+                "/private/var/log/com.apple.xpc.launchd/launchd.log.2",
+                Some(Artifact::LaunchdLog),
+            ),
+            ("launchd.logs", None),
             ("TCC.db-shm", None),
             ("History", None),
             ("", None),

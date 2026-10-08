@@ -34,6 +34,15 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     let _ = macos::read_fsevents(data);
     let _ = macos::read_background_items(data);
     let _ = macos::read_asl(data);
+    let _ = macos::read_launchd_log(data);
+    let _ = macos::read_wifi_log(
+        data,
+        macos::Years {
+            earliest: 2014,
+            latest: 2026,
+            current: 2026,
+        },
+    );
     let _ = macos::read_app_usage(data, wal);
     let _ = macos::read_document_versions(data, wal);
     let _ = macos::read_notes(data, wal);
@@ -190,5 +199,49 @@ proptest! {
             let _ = macos::read_keychain(&data);
             let _ = macos::read_prefs(macos::PrefKind::SpotlightShortcuts, &data);
         }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// Text logs: lines of log-like text, any years asked for.
+    #[test]
+    fn arbitrary_log_text_and_years_never_panic(
+        text in "[ -~\t\n<>\\[\\]():.“”]{0,600}",
+        earliest in any::<i64>(),
+        latest in any::<i64>(),
+        current in any::<i64>(),
+    ) {
+        let years = macos::Years { earliest, latest, current };
+        let _ = macos::read_wifi_log(text.as_bytes(), years);
+        let _ = macos::read_launchd_log(text.as_bytes());
+        let lines = format!("Thu Dec 31 23:59:38.165 {text}\nFri Jan  1 00:00:00.000 x\n");
+        let _ = macos::read_wifi_log(lines.as_bytes(), years);
+    }
+
+    /// plaso's Wi-Fi and launchd logs damaged and cut anywhere.
+    #[test]
+    fn damaged_text_logs_never_panic(
+        flips in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..40),
+        cut in any::<usize>(),
+    ) {
+        for name in ["plaso/wifi.log", "plaso/wifi_turned_over.log"] {
+            let mut data = support::fixture(name);
+            for &(at, byte) in &flips {
+                let at = at % data.len();
+                data[at] = byte;
+            }
+            data.truncate(cut % (data.len() + 1));
+            let years = macos::Years { earliest: 2014, latest: 2026, current: 2026 };
+            let _ = macos::read_wifi_log(&data, years);
+        }
+        let mut data = support::fixture("plaso/macos_launchd.log.gz")[..20_000].to_vec();
+        for &(at, byte) in &flips {
+            let at = at % data.len();
+            data[at] = byte;
+        }
+        data.truncate(cut % (data.len() + 1));
+        let _ = macos::read_launchd_log(&data);
     }
 }

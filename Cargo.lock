@@ -248,7 +248,7 @@ checksum = "16039a30e3d12a335537236722ba00a8da0b5dfdfcf20785b75dea78f523160e"
 
 [[package]]
 name = "sootmark-macos"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "proptest",
  "sootmark-common",
