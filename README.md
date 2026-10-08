@@ -47,6 +47,10 @@ for problem in &knowledgec.problems {
 - `read_background_items(data)`: `backgrounditems.btm` (macOS 10.13 to 12) and `BackgroundItems-v<n>.btm`: each login item's display name, target path and creation time, and its volume's name, mount point, creation time and flags, from the bookmarks the archive holds.
 - `read_prefs(kind, data)`: the property lists of what the Mac did and was set to, one entry per thing: installations (`InstallHistory.plist`: name, version, installer, packages, time), Software Update's last checks and recommendations, the Wi-Fi networks remembered (SSID, security, last joined), the Bluetooth devices seen and paired (with their last updates), the Apple accounts signed in, legacy login items (`com.apple.loginitems.plist`, targets from their alias records), login and logout hooks and login applications, a local account's `dslocal` property list (name, full name, ids, home, shell, created, password last set, last login and failed login; never the hashes), startup items, Time Machine destinations and snapshots.
 - `read_asl(data)`: the Apple System Log (`/private/var/log/asl/*.asl`): each message's time (to the nanosecond), level, process, user and group, who may read it, host, sender, facility, message and extra key-value pairs.
+- `read_app_usage(database, wal)`: `application_usage.sqlite` (Google's crankd, on managed Macs): each app's launches and quits, with bundle, version, path, how many and the last time.
+- `read_document_versions(database, wal)`: the document revisions database (`/.DocumentRevisions-V100/db-V1/db.sqlite`): every saved version of a document, with the document's path, when it was last seen, where the version is kept, when it was saved, by which user (`PerUID/<id>`) and app, and its size; versions outlive the documents.
+- `read_notes(database, wal)`: Notes before macOS 10.11 (`NotesV7.storedata`): each note's title, text (its HTML removed), creation and edit times.
+- `read_notifications(database, wal)`: Notification Center (`com.apple.notificationcenter/db2/db`, and `group.com.apple.usernoted/db2/db` from macOS 15): each notification's app, delivery time, whether it was shown, and its title, subtitle and body from the record's property list.
 
 ## Not yet
 
@@ -68,6 +72,7 @@ for problem in &knowledgec.problems {
 - FSEvents and background items: plaso's test files (`test_data/fsevents/`, `backgrounditems.btm`), every record and value plaso's `fseventsd` parser and `macos_background_items_plist` plugin read, read the same.
 - Property lists: plaso's test plists, every event its `macos_bluetooth`, `apple_id`, `airport`, `time_machine`, `macos_software_update`, `macuser`, `macos_login_items_plist`, `macos_login_window_plist` and `macos_startup_item_plist` plugins read, read the same; `InstallHistory.plist` against the values it holds.
 - ASL: plaso's `applesystemlog.asl` and `2019.09.26.asl`, every one of the 320 messages its `asl_log` parser reads, read the same.
+- Application usage, document versions, Notes and Notification Center: plaso's test databases, every one of the 25 events its `appusage`, `mac_document_versions`, `mac_notes` and `mac_notificationcenter` plugins read, read the same (`tests/oracle/plaso-usage.tsv`); plaso gives a document's folder where this gives its path.
 
 ## Licence
 

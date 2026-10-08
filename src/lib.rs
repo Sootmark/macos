@@ -35,6 +35,7 @@ mod prefs;
 mod quarantine;
 mod table;
 mod tcc;
+mod usage;
 
 pub use asl::{is_asl, read_asl, Asl, AslRecord};
 pub use btm::{is_background_items_name, read_background_items, BackgroundItem, BackgroundItems};
@@ -44,6 +45,10 @@ pub use launchd::{read_launchd, JobFlag, JobKind, LaunchJob, Launchd, Triggers};
 pub use prefs::{read_prefs, PrefEntry, PrefKind, Prefs};
 pub use quarantine::{read_quarantine, Quarantine, QuarantineEvent};
 pub use tcc::{read_tcc, AuthReason, Authorization, ClientType, Tcc, TccEntry};
+pub use usage::{
+    read_app_usage, read_document_versions, read_notes, read_notifications, AppUsage, AppUse,
+    DocumentVersion, DocumentVersions, Note, Notes, Notification, Notifications,
+};
 
 /// This crate's version, for records of what parsed them.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -72,6 +77,18 @@ pub enum Artifact {
     Prefs(PrefKind),
     /// An Apple System Log file (`asl/*.asl`): read with [`read_asl`].
     Asl,
+    /// `application_usage.sqlite`: read with [`read_app_usage`].
+    AppUsage,
+    /// The document revisions database
+    /// (`.DocumentRevisions-V100/db-V1/db.sqlite`): read with
+    /// [`read_document_versions`].
+    DocumentVersions,
+    /// `NotesV7.storedata`: read with [`read_notes`].
+    Notes,
+    /// A Notification Center database (`com.apple.notificationcenter/db2/
+    /// db`, `group.com.apple.usernoted/db2/db`): read with
+    /// [`read_notifications`].
+    Notifications,
 }
 
 /// Whose a database is, as its path says.
@@ -102,6 +119,12 @@ pub fn detect(name: &str) -> Option<Artifact> {
         "com.apple.launchservices.quarantineeventsv2" => Some(Artifact::QuarantineEvents),
         "tcc.db" => Some(Artifact::Tcc(tcc_scope(&path))),
         "knowledgec.db" => Some(Artifact::KnowledgeC(knowledgec_scope(&path))),
+        "application_usage.sqlite" => Some(Artifact::AppUsage),
+        "notesv7.storedata" => Some(Artifact::Notes),
+        _ if path.ends_with(".documentrevisions-v100/db-v1/db.sqlite") => {
+            Some(Artifact::DocumentVersions)
+        }
+        _ if NOTIFICATION_PATHS.iter().any(|p| path.ends_with(p)) => Some(Artifact::Notifications),
         _ if is_fsevents_name(base) && path.contains(".fseventsd/") => Some(Artifact::FsEvents),
         _ if is_background_items_name(base) => Some(Artifact::BackgroundItems),
         _ if std::path::Path::new(base)
@@ -121,6 +144,11 @@ pub fn detect(name: &str) -> Option<Artifact> {
     }
 }
 
+/// Where Notification Center keeps its database, before and from macOS 15.
+const NOTIFICATION_PATHS: [&str; 2] = [
+    "com.apple.notificationcenter/db2/db",
+    "group.com.apple.usernoted/db2/db",
+];
 const TCC_PATH: &str = "library/application support/com.apple.tcc/tcc.db";
 const SYSTEM_KNOWLEDGEC_PATH: &str = "var/db/coreduet/knowledge/knowledgec.db";
 const USER_KNOWLEDGEC_PATH: &str = "library/application support/knowledge/knowledgec.db";
@@ -247,6 +275,27 @@ mod tests {
             ),
             ("knowledgeC.db", Some(Artifact::KnowledgeC(Scope::Unknown))),
             ("knowledgeC.db-wal", None),
+            (
+                "/private/var/db/application_usage.sqlite",
+                Some(Artifact::AppUsage),
+            ),
+            (
+                "/.DocumentRevisions-V100/db-V1/db.sqlite",
+                Some(Artifact::DocumentVersions),
+            ),
+            ("/tmp/db-V1/db.sqlite", None),
+            (
+                "/Users/a/Library/Containers/com.apple.Notes/Data/Library/Notes/NotesV7.storedata",
+                Some(Artifact::Notes),
+            ),
+            (
+                "/private/var/folders/xy/abc/0/com.apple.notificationcenter/db2/db",
+                Some(Artifact::Notifications),
+            ),
+            (
+                "/Users/a/Library/Group Containers/group.com.apple.usernoted/db2/db",
+                Some(Artifact::Notifications),
+            ),
             ("TCC.db-shm", None),
             ("History", None),
             ("", None),

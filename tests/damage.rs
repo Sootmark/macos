@@ -6,13 +6,17 @@ mod support;
 use proptest::prelude::*;
 
 /// Every artifact, every schema version.
-const DATABASES: [&str; 6] = [
+const DATABASES: [&str; 10] = [
     "plaso/quarantine.db",
     "plaso/TCC-test.db",
     "plaso/knowledgec-10.13.db.gz",
     "plaso/knowledgec-10.14.db.gz",
     "synthetic/TCC.db",
     "synthetic/knowledgeC.db",
+    "plaso/application_usage.sqlite",
+    "plaso/document_versions.sql",
+    "plaso/NotesV7.storedata",
+    "plaso/mac_notificationcenter.db",
 ];
 
 const DATABASE: &str = "synthetic/knowledgeC.db";
@@ -29,6 +33,10 @@ fn read_everything(data: &[u8], wal: &[u8]) {
     let _ = macos::read_fsevents(data);
     let _ = macos::read_background_items(data);
     let _ = macos::read_asl(data);
+    let _ = macos::read_app_usage(data, wal);
+    let _ = macos::read_document_versions(data, wal);
+    let _ = macos::read_notes(data, wal);
+    let _ = macos::read_notifications(data, wal);
     for kind in [
         macos::PrefKind::InstallHistory,
         macos::PrefKind::SoftwareUpdate,
